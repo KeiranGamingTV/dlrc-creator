@@ -1225,3 +1225,44 @@ h1 > span {
         flex-direction: column;
     }
 }
+
+
+/* Phase 3: import, validation, and file output */
+
+.file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.file-actions .button {
+    white-space: nowrap;
+}
+
+#validationCount {
+    white-space: pre-line;
+}
+
+@media (max-width: 560px) {
+    .preview-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .file-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .file-actions .button {
+        width: 100%;
+        white-space: normal;
+    }
+
+    #downloadDlrcButton {
+        grid-column: 1 / -1;
+    }
+}
