@@ -31,6 +31,10 @@ window.DLRC.App = (() => {
         window.DLRC.Editor.init({
             onToast: showToast
         });
+        
+        window.DLRC.IO.init({
+            onToast: showToast
+        });
 
         updateLineCount();
 
