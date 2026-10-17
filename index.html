@@ -46,7 +46,7 @@
                 </div>
                 <div class="version-pill">
                     <span class="version-dot"></span>
-                    Phase 1 · Foundation
+                    DLRC Editor
                 </div>
             </section>
 
@@ -166,14 +166,6 @@ Each non-empty line will become a lyric line in Phase 2."
 
                 <div class="editor-footer">
                     <p>One lyric line per row. Empty lines are ignored.</p>
-                    <button class="button button-secondary"
-                            id="clearLyricsButton" type="button">
-                        Clear lyrics
-                    </button>
-                </div>
-
-                <div class="editor-footer">
-                    <p>Enter one lyric line per row. Empty lines are ignored.</p>
                     <button class="button button-secondary"
                             id="clearLyricsButton" type="button">
                         Clear lyrics
@@ -340,13 +332,25 @@ Each non-empty line will become a lyric line in Phase 2."
                         <p>Review the generated DLRC text as you edit.</p>
                     </div>
                 </div>
-            
+                
                 <div class="preview-toolbar">
                     <span id="previewStatus">Waiting for lyrics</span>
-                    <button class="button button-secondary"
-                            id="copyDlrcButton" type="button">
-                        Copy source
-                    </button>
+                    <div class="file-actions">
+                        <input id="dlrcFileInput" type="file"
+                               accept=".dlrc,.lrc,.txt,text/plain" hidden>
+                        <button class="button button-secondary"
+                                id="importDlrcButton" type="button">
+                            Import DLRC
+                        </button>
+                        <button class="button button-secondary"
+                                id="copyDlrcButton" type="button">
+                            Copy source
+                        </button>
+                        <button class="button button-primary"
+                                id="downloadDlrcButton" type="button">
+                            Download .dlrc
+                        </button>
+                    </div>
                 </div>
             
                 <label class="visually-hidden" for="dlrcPreview">
