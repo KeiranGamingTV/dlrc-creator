@@ -16,19 +16,21 @@ window.DLRC.App = (() => {
         clearLyricsButton = document.getElementById("clearLyricsButton");
         toast = document.getElementById("toast");
 
+        lyricsInput.addEventListener("input", updateLineCount);
+        clearLyricsButton.addEventListener("click", clearLyrics);
+
         window.DLRC.AudioPlayer.init({
             onTrackLoaded(track) {
                 showToast(`Loaded "${track.name}"`);
             },
-
             onError(message) {
                 showToast(message);
             }
         });
 
-        lyricsInput.addEventListener("input", updateLineCount);
-
-        clearLyricsButton.addEventListener("click", clearLyrics);
+        window.DLRC.Editor.init({
+            onToast: showToast
+        });
 
         updateLineCount();
 
@@ -38,21 +40,20 @@ window.DLRC.App = (() => {
     }
 
     function updateLineCount() {
-        const lines = lyricsInput.value
+        const count = lyricsInput.value
             .split(/\r\n|\r|\n/)
-            .filter(line => line.trim().length > 0);
+            .filter(line => line.trim().length > 0)
+            .length;
 
-        const count = lines.length;
-
-        lineCount.textContent = `${count} ${count === 1 ? "line" : "lines"}`;
+        lineCount.textContent =
+            `${count} ${count === 1 ? "line" : "lines"}`;
     }
 
     function clearLyrics() {
-        if (!lyricsInput.value) {
-            return;
-        }
+        if (!lyricsInput.value) return;
 
         lyricsInput.value = "";
+        lyricsInput.dispatchEvent(new Event("input", { bubbles: true }));
         updateLineCount();
         lyricsInput.focus();
         showToast("Lyrics cleared.");
@@ -60,7 +61,6 @@ window.DLRC.App = (() => {
 
     function showToast(message) {
         window.clearTimeout(toastTimeout);
-
         toast.textContent = message;
         toast.hidden = false;
 
@@ -69,9 +69,7 @@ window.DLRC.App = (() => {
         }, 3000);
     }
 
-    return {
-        init
-    };
+    return { init };
 })();
 
 document.addEventListener("DOMContentLoaded", () => {
