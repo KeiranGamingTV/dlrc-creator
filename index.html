@@ -9,6 +9,7 @@
     <title>DLRC Creator</title>
     <link rel="stylesheet" href="css/styles.css">
     <script src="js/audio-player.js" defer></script>
+    <script src="js/dlrc-editor.js" defer></script>
     <script src="js/app.js" defer></script>
 </head>
 <body>
@@ -171,36 +172,193 @@ Each non-empty line will become a lyric line in Phase 2."
                     </button>
                 </div>
 
-                <div class="next-step-notice">
-                    <span class="notice-icon" aria-hidden="true">✦</span>
-                    <div>
-                        <strong>Ready for synchronization</strong>
-                        <p>
-                            The next phase will add per-line timestamps,
-                            keyboard shortcuts, singer columns, and colors.
-                        </p>
-                    </div>
+                <div class="editor-footer">
+                    <p>Enter one lyric line per row. Empty lines are ignored.</p>
+                    <button class="button button-secondary"
+                            id="clearLyricsButton" type="button">
+                        Clear lyrics
+                    </button>
                 </div>
             </section>
 
-            <section class="next-phase-card" aria-label="Coming next">
-                <div class="next-phase-heading">
-                    <span class="eyebrow">COMING IN THE NEXT PHASE</span>
-                    <span class="phase-number">PHASE 2</span>
+            
+            <section class="metadata-card panel" aria-labelledby="metadataHeading">
+                <div class="section-heading">
+                    <div class="section-icon lyrics-icon" aria-hidden="true">✎</div>
+                    <div>
+                        <h2 id="metadataHeading">Song metadata</h2>
+                        <p>Information written into your DLRC file.</p>
+                    </div>
                 </div>
-                <div class="feature-list">
-                    <div class="feature-item">
-                        <span class="feature-check">01</span>
-                        <span>Line-by-line timestamping</span>
+            
+                <div class="metadata-grid">
+                    <label class="form-field">
+                        <span>Title</span>
+                        <input id="metaTitle" type="text" placeholder="Song title">
+                    </label>
+                    <label class="form-field">
+                        <span>Artist</span>
+                        <input id="metaArtist" type="text" placeholder="Artist name">
+                    </label>
+                    <label class="form-field">
+                        <span>Album</span>
+                        <input id="metaAlbum" type="text" placeholder="Album name">
+                    </label>
+                    <label class="form-field">
+                        <span>Creator</span>
+                        <input id="metaCreator" type="text" placeholder="DLRC file creator">
+                    </label>
+                    <label class="form-field">
+                        <span>Offset (milliseconds)</span>
+                        <input id="metaOffset" type="number" value="0" step="1">
+                    </label>
+                    <label class="form-field">
+                        <span>Encoding / source note</span>
+                        <input id="metaNote" type="text" placeholder="Optional note">
+                    </label>
+                </div>
+            </section>
+            
+            <section class="sync-card panel" aria-labelledby="syncHeading">
+                <div class="section-heading">
+                    <div class="section-icon audio-icon" aria-hidden="true">⌁</div>
+                    <div>
+                        <h2 id="syncHeading">Lyric synchronization</h2>
+                        <p>Play the song and timestamp each lyric line.</p>
                     </div>
-                    <div class="feature-item">
-                        <span class="feature-check">02</span>
-                        <span>Singer columns and color tags</span>
+                </div>
+            
+                <div class="sync-toolbar">
+                    <span id="syncProgress">0 of 0 lines timestamped</span>
+                    <span id="activeLineLabel">No active line</span>
+                </div>
+            
+                <div class="sync-controls">
+                    <button class="button button-secondary"
+                            id="previousLineButton" type="button">
+                        ← Previous
+                    </button>
+                    <button class="button button-primary"
+                            id="timestampButton" type="button">
+                        Set timestamp
+                    </button>
+                    <button class="button button-secondary"
+                            id="nextLineButton" type="button">
+                        Next →
+                    </button>
+                </div>
+            
+                <p class="keyboard-hint">
+                    Shortcuts: Space = play/pause · Enter = timestamp and advance
+                    · ↑ / ↓ = previous/next line
+                </p>
+            
+                <div id="syncLyricsList" class="sync-lyrics-list">
+                    <div class="empty-state">
+                        Enter lyrics above to create your synchronized lyric lines.
                     </div>
-                    <div class="feature-item">
-                        <span class="feature-check">03</span>
-                        <span>DLRC metadata editor</span>
+                </div>
+            </section>
+            
+            <section class="singers-card panel" aria-labelledby="singersHeading">
+                <div class="section-heading">
+                    <div class="section-icon lyrics-icon" aria-hidden="true">♫</div>
+                    <div>
+                        <h2 id="singersHeading">Singer columns and colors</h2>
+                        <p>Set up the singers who perform your lyrics.</p>
                     </div>
+                </div>
+            
+                <div class="singer-add-row">
+                    <label class="form-field">
+                        <span>Singer name</span>
+                        <input id="newSingerName" type="text"
+                               placeholder="e.g. Blue">
+                    </label>
+                    <label class="form-field">
+                        <span>Default color</span>
+                        <input id="newSingerColor" type="color" value="#000DFF">
+                    </label>
+                    <button class="button button-primary"
+                            id="addSingerButton" type="button">
+                        Add singer
+                    </button>
+                </div>
+            
+                <p class="keyboard-hint">
+                    Singer names also become color declaration names in the DLRC header.
+                    Each singer has a numbered column.
+                </p>
+            
+                <div id="singerList" class="singer-list"></div>
+            
+                <div class="line-settings">
+                    <h3>Selected lyric line</h3>
+                    <p id="selectedLineDescription">
+                        Select a lyric line above to configure its singer and color.
+                    </p>
+            
+                    <div class="metadata-grid">
+                        <label class="form-field">
+                            <span>Singer column</span>
+                            <select id="lineSinger">
+                                <option value="0">Column 0</option>
+                            </select>
+                        </label>
+                        <label class="form-field">
+                            <span>Line color override</span>
+                            <select id="lineColor">
+                                <option value="">Use singer default</option>
+                            </select>
+                        </label>
+                    </div>
+            
+                    <label class="form-field">
+                        <span>Lyric text</span>
+                        <textarea id="selectedLineText" rows="2"
+                                  placeholder="Select a line to edit its text"></textarea>
+                    </label>
+            
+                    <div class="line-edit-actions">
+                        <button class="button button-secondary"
+                                id="applyLineButton" type="button">
+                            Apply line changes
+                        </button>
+                        <button class="button button-secondary"
+                                id="clearLineTimestampButton" type="button">
+                            Clear timestamp
+                        </button>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="preview-card panel" aria-labelledby="previewHeading">
+                <div class="section-heading">
+                    <div class="section-icon audio-icon" aria-hidden="true">{ }</div>
+                    <div>
+                        <h2 id="previewHeading">DLRC source preview</h2>
+                        <p>Review the generated DLRC text as you edit.</p>
+                    </div>
+                </div>
+            
+                <div class="preview-toolbar">
+                    <span id="previewStatus">Waiting for lyrics</span>
+                    <button class="button button-secondary"
+                            id="copyDlrcButton" type="button">
+                        Copy source
+                    </button>
+                </div>
+            
+                <label class="visually-hidden" for="dlrcPreview">
+                    Generated DLRC source
+                </label>
+                <textarea id="dlrcPreview" class="dlrc-preview"
+                          spellcheck="false" readonly
+                          placeholder="Your generated DLRC source will appear here."></textarea>
+            
+                <div class="preview-footer">
+                    <span id="validationCount">No validation issues</span>
+                    <span>DLRC · UTF-8 text</span>
                 </div>
             </section>
         </main>
