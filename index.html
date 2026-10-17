@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#111016">
+    <meta name="description" content="DLRC Creator — create, synchronize, and edit Duet LRC lyric files.">
+    <title>DLRC Creator</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="js/audio-player.js" defer></script>
+    <script src="js/app.js" defer></script>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <a class="brand" href="./" aria-label="DLRC Creator home">
+                <span class="brand-icon">D</span>
+                <span class="brand-name">DLRC <span>Creator</span></span>
+            </a>
+
+            <div class="header-actions">
+                <span class="save-status" id="saveStatus">
+                    <span class="status-dot"></span>
+                    Local workspace
+                </span>
+                <a class="library-link"
+                   href="https://github.com/KeiranGamingTV/dlrc-library"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    DLRC Library <span aria-hidden="true">↗</span>
+                </a>
+            </div>
+        </header>
+
+        <main class="workspace">
+            <section class="welcome-section">
+                <div>
+                    <p class="eyebrow">YOUR LYRICS WORKSPACE</p>
+                    <h1>Bring your lyrics <span>to life.</span></h1>
+                    <p class="welcome-description">
+                        Synchronize lyrics to your music and create your own
+                        Duet LRC files, one line at a time.
+                    </p>
+                </div>
+                <div class="version-pill">
+                    <span class="version-dot"></span>
+                    Phase 1 · Foundation
+                </div>
+            </section>
+
+            <section class="audio-card panel" aria-labelledby="audioHeading">
+                <div class="section-heading">
+                    <div class="section-icon audio-icon" aria-hidden="true">♫</div>
+                    <div>
+                        <h2 id="audioHeading">Audio track</h2>
+                        <p>Choose a song from your device to get started.</p>
+                    </div>
+                </div>
+
+                <input
+                    id="audioFileInput"
+                    type="file"
+                    accept="audio/*,.flac,.mp3,.wav,.m4a,.ogg,.opus,.aac"
+                    hidden
+                >
+
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon" aria-hidden="true">↑</div>
+                    <h3 id="uploadTitle">Drop your audio file here</h3>
+                    <p id="uploadDescription">
+                        or choose a file from your device
+                    </p>
+                    <button class="button button-secondary"
+                            id="chooseAudioButton" type="button">
+                        Choose audio file
+                    </button>
+                    <p class="file-note">
+                        Your audio stays on your device.
+                    </p>
+                </div>
+
+                <div class="track-player" id="trackPlayer" hidden>
+                    <div class="track-art" aria-hidden="true">♫</div>
+
+                    <div class="track-info">
+                        <h3 id="trackTitle">Untitled track</h3>
+                        <p id="trackDetails">Local audio file</p>
+                    </div>
+
+                    <button class="icon-button"
+                            id="changeAudioButton"
+                            type="button"
+                            aria-label="Choose a different audio file"
+                            title="Change audio">↗</button>
+                </div>
+
+                <audio id="audioElement" preload="metadata"></audio>
+
+                <div class="player-controls" id="playerControls" hidden>
+                    <div class="seek-row">
+                        <span class="time-label" id="currentTime">0:00</span>
+                        <label class="visually-hidden" for="seekBar">
+                            Seek through audio
+                        </label>
+                        <input id="seekBar" class="range-input"
+                               type="range" min="0" max="1000" value="0"
+                               step="1">
+                        <span class="time-label" id="totalTime">0:00</span>
+                    </div>
+
+                    <div class="playback-row">
+                        <button class="button button-primary play-button"
+                                id="playButton" type="button"
+                                aria-label="Play audio">▶</button>
+
+                        <span class="playback-label">Playback speed</span>
+
+                        <label class="visually-hidden" for="speedSelect">
+                            Playback speed
+                        </label>
+                        <select id="speedSelect" class="speed-select">
+                            <option value="0.5">0.5×</option>
+                            <option value="0.75">0.75×</option>
+                            <option value="0.9">0.9×</option>
+                            <option value="1" selected>1.0×</option>
+                            <option value="1.1">1.1×</option>
+                            <option value="1.25">1.25×</option>
+                            <option value="1.5">1.5×</option>
+                            <option value="2">2.0×</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <section class="lyrics-card panel" aria-labelledby="lyricsHeading">
+                <div class="section-heading">
+                    <div class="section-icon lyrics-icon" aria-hidden="true">≡</div>
+                    <div>
+                        <h2 id="lyricsHeading">Lyrics editor</h2>
+                        <p>Paste your lyrics with each line on a new row.</p>
+                    </div>
+                </div>
+
+                <div class="editor-toolbar">
+                    <span class="field-label">LYRICS SOURCE</span>
+                    <span class="line-count" id="lineCount">0 lines</span>
+                </div>
+
+                <label class="visually-hidden" for="lyricsInput">
+                    Enter lyrics, one line per row
+                </label>
+                <textarea
+                    id="lyricsInput"
+                    class="lyrics-input"
+                    placeholder="Paste your lyrics here...
+
+First line of the song
+Second line of the song
+Third line of the song
+
+Each non-empty line will become a lyric line in Phase 2."
+                    spellcheck="false"
+                ></textarea>
+
+                <div class="editor-footer">
+                    <p>One lyric line per row. Empty lines are ignored.</p>
+                    <button class="button button-secondary"
+                            id="clearLyricsButton" type="button">
+                        Clear lyrics
+                    </button>
+                </div>
+
+                <div class="next-step-notice">
+                    <span class="notice-icon" aria-hidden="true">✦</span>
+                    <div>
+                        <strong>Ready for synchronization</strong>
+                        <p>
+                            The next phase will add per-line timestamps,
+                            keyboard shortcuts, singer columns, and colors.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="next-phase-card" aria-label="Coming next">
+                <div class="next-phase-heading">
+                    <span class="eyebrow">COMING IN THE NEXT PHASE</span>
+                    <span class="phase-number">PHASE 2</span>
+                </div>
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <span class="feature-check">01</span>
+                        <span>Line-by-line timestamping</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-check">02</span>
+                        <span>Singer columns and color tags</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-check">03</span>
+                        <span>DLRC metadata editor</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            <span>DLRC Creator</span>
+            <span>Made for synchronized lyrics.</span>
+        </footer>
+    </div>
+
+    <div class="toast" id="toast" role="status"
+         aria-live="polite" hidden></div>
+</body>
+</html>
