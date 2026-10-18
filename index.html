@@ -9,6 +9,8 @@
     <title>DLRC Creator</title>
     <link rel="stylesheet" href="css/styles.css">
     <script src="js/audio-player.js" defer></script>
+    <script src="js/dlrc-parser.js" defer></script>
+    <script src="js/dlrc-generator.js" defer></script>
     <script src="js/dlrc-editor.js" defer></script>
     <script src="js/dlrc-io.js" defer></script>
     <script src="js/app.js" defer></script>
@@ -206,6 +208,16 @@ Each non-empty line will become a lyric line in Phase 2."
                         <input id="metaOffset" type="number" value="0" step="1">
                     </label>
                     <label class="form-field">
+                        <span>Offset (milliseconds)</span>
+                        <input id="metaOffset" type="number" value="0" step="1">
+                    </label>
+                        
+                    <label class="form-field">
+                        <span>Length (m:ss) · blank uses audio length</span>
+                        <input id="metaLength" type="text" placeholder="e.g. 3:35" autocomplete="off">
+                    </label>
+
+                    <label class="form-field">
                         <span>Encoding / source note</span>
                         <input id="metaNote" type="text" placeholder="Optional note">
                     </label>
@@ -257,68 +269,60 @@ Each non-empty line will become a lyric line in Phase 2."
                 <div class="section-heading">
                     <div class="section-icon lyrics-icon" aria-hidden="true">♫</div>
                     <div>
-                        <h2 id="singersHeading">Singer columns and colors</h2>
-                        <p>Set up the singers who perform your lyrics.</p>
+                        <h2 id="singersHeading">Colors and columns</h2>
+                        <p>Name your colors, then give each line a column and color.</p>
                     </div>
                 </div>
-            
+                
                 <div class="singer-add-row">
                     <label class="form-field">
-                        <span>Singer name</span>
-                        <input id="newSingerName" type="text"
-                               placeholder="e.g. Blue">
+                        <span>Color name</span>
+                        <input id="newSingerName" type="text" placeholder="e.g. blue">
                     </label>
                     <label class="form-field">
-                        <span>Default color</span>
+                        <span>Color</span>
                         <input id="newSingerColor" type="color" value="#000DFF">
                     </label>
-                    <button class="button button-primary"
-                            id="addSingerButton" type="button">
-                        Add singer
+                    <button class="button button-primary" id="addSingerButton" type="button">
+                        Add color
                     </button>
                 </div>
-            
+                
                 <p class="keyboard-hint">
-                    Singer names also become color declaration names in the DLRC header.
-                    Each singer has a numbered column.
+                    Colors are optional. A line without a color uses its column's default color in the player.
                 </p>
-            
+                
                 <div id="singerList" class="singer-list"></div>
-            
+                
                 <div class="line-settings">
                     <h3>Selected lyric line</h3>
                     <p id="selectedLineDescription">
-                        Select a lyric line above to configure its singer and color.
+                        Select a lyric line above to choose its column and color.
                     </p>
-            
+                
                     <div class="metadata-grid">
                         <label class="form-field">
-                            <span>Singer column</span>
-                            <select id="lineSinger">
-                                <option value="0">Column 0</option>
-                            </select>
+                            <span>Column</span>
+                            <select id="lineSinger"></select>
                         </label>
                         <label class="form-field">
-                            <span>Line color override</span>
+                            <span>Line color</span>
                             <select id="lineColor">
-                                <option value="">Use singer default</option>
+                                <option value="">Use column default</option>
                             </select>
                         </label>
                     </div>
-            
+                
                     <label class="form-field">
                         <span>Lyric text</span>
-                        <textarea id="selectedLineText" rows="2"
-                                  placeholder="Select a line to edit its text"></textarea>
+                        <textarea id="selectedLineText" rows="2" placeholder="Select a line to edit its text"></textarea>
                     </label>
-            
+                
                     <div class="line-edit-actions">
-                        <button class="button button-secondary"
-                                id="applyLineButton" type="button">
+                        <button class="button button-secondary" id="applyLineButton" type="button">
                             Apply line changes
                         </button>
-                        <button class="button button-secondary"
-                                id="clearLineTimestampButton" type="button">
+                        <button class="button button-secondary" id="clearLineTimestampButton" type="button">
                             Clear timestamp
                         </button>
                     </div>
@@ -365,6 +369,8 @@ Each non-empty line will become a lyric line in Phase 2."
                     <span id="validationCount">No validation issues</span>
                     <span>DLRC · UTF-8 text</span>
                 </div>
+                
+                <ul id="validationList" class="validation-list" aria-label="Validation details"></ul>
             </section>
         </main>
 
