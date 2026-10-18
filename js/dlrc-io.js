@@ -54,11 +54,8 @@ window.DLRC.IO = (() => {
             status.textContent = `Imported ${result.importedLines} lyric lines`;
 
             if (result.issues.length) {
-                validation.textContent =
-                    `${result.issues.length} import issue(s)`;
-                validation.title = result.issues.join("\n");
                 onToast(
-                    `Imported with ${result.issues.length} issue(s). Review the source and validation details.`
+                    `Imported with ${result.issues.length} note(s). See the list under the preview.`
                 );
             } else {
                 onToast(`Imported "${file.name}".`);
@@ -94,7 +91,7 @@ window.DLRC.IO = (() => {
         const filename = makeFilename(title || "untitled");
 
         const blob = new Blob(
-            ["\uFEFF", source.replace(/\r\n|\r/g, "\n")],
+            [source.replace(/\r\n|\r/g, "\n")],
             { type: "text/plain;charset=utf-8" }
         );
 
