@@ -1266,3 +1266,34 @@ h1 > span {
         grid-column: 1 / -1;
     }
 }
+
+/* Column tags and validation details */
+
+.sync-line-col {
+    display: inline-block;
+    min-width: 18px;
+    margin-right: 8px;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 9px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.validation-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+.validation-list:empty {
+    display: none;
+}
+
+.validation-list .is-note {
+    color: var(--muted);
+}
