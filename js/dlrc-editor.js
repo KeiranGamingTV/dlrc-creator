@@ -1,25 +1,38 @@
-
 "use strict";
 
 window.DLRC = window.DLRC || {};
 
 window.DLRC.Editor = (() => {
+    const { COLUMNS, generate, formatTimestamp } = window.DLRC.Generator;
+
+    const HEX = /^#[0-9a-f]{6}$/i;
+    const BAD_NAME = /[\[\]<>:{}\r\n]/;
+    const COLUMN_COLORS = { "1": "#8AB8FF", "2": "#FF9EC4", "B": "#A78BFA" };
+    const COLUMN_TAGS = { "1": "L", "2": "R", "B": "C" };
+
+    const METADATA_FIELDS = {
+        title: "metaTitle",
+        artist: "metaArtist",
+        album: "metaAlbum",
+        creator: "metaCreator",
+        length: "metaLength",
+        note: "metaNote"
+    };
+
     const state = {
         lines: [],
-        preservedTags: [],
-        singers: [
-            { name: "blue", color: "#000DFF" },
-            { name: "red", color: "#FF0000" }
+        colors: [
+            { name: "blue", hex: "#000DFF" },
+            { name: "red", hex: "#FF0000" }
         ],
+        header: [],
+        footer: [],
+        importNotes: [],
         activeIndex: 0,
         selectedIndex: 0,
         metadata: {
-            title: "",
-            artist: "",
-            album: "",
-            creator: "",
-            offset: 0,
-            note: ""
+            title: "", artist: "", album: "", creator: "",
+            offset: 0, length: "", note: ""
         }
     };
 
@@ -35,12 +48,12 @@ window.DLRC.Editor = (() => {
             "lyricsInput", "syncProgress", "activeLineLabel",
             "syncLyricsList", "timestampButton", "previousLineButton",
             "nextLineButton", "metaTitle", "metaArtist", "metaAlbum",
-            "metaCreator", "metaOffset", "metaNote", "newSingerName",
-            "newSingerColor", "addSingerButton", "singerList",
-            "lineSinger", "lineColor", "selectedLineDescription",
-            "selectedLineText", "applyLineButton",
-            "clearLineTimestampButton", "dlrcPreview",
-            "copyDlrcButton", "previewStatus", "validationCount"
+            "metaCreator", "metaOffset", "metaLength", "metaNote",
+            "newSingerName", "newSingerColor", "addSingerButton",
+            "singerList", "lineSinger", "lineColor",
+            "selectedLineDescription", "selectedLineText", "applyLineButton",
+            "clearLineTimestampButton", "dlrcPreview", "copyDlrcButton",
+            "previewStatus", "validationCount", "validationList"
         ];
 
         for (const id of ids) {
@@ -49,27 +62,26 @@ window.DLRC.Editor = (() => {
 
         lyricsInput = el.lyricsInput;
 
+        el.lineSinger.replaceChildren();
+        for (const column of COLUMNS) {
+            const option = document.createElement("option");
+            option.value = column.value;
+            option.textContent = column.label;
+            el.lineSinger.append(option);
+        }
+
         lyricsInput.addEventListener("input", syncLyricsFromTextarea);
 
         el.timestampButton.addEventListener("click", timestampActiveLine);
         el.previousLineButton.addEventListener("click", () => moveActive(-1));
         el.nextLineButton.addEventListener("click", () => moveActive(1));
 
-        el.addSingerButton.addEventListener("click", addSinger);
+        el.addSingerButton.addEventListener("click", addColor);
         el.applyLineButton.addEventListener("click", applySelectedLine);
-        el.clearLineTimestampButton.addEventListener(
-            "click", clearSelectedTimestamp
-        );
-
+        el.clearLineTimestampButton.addEventListener("click", clearSelectedTimestamp);
         el.copyDlrcButton.addEventListener("click", copySource);
 
-        for (const [key, id] of Object.entries({
-            title: "metaTitle",
-            artist: "metaArtist",
-            album: "metaAlbum",
-            creator: "metaCreator",
-            note: "metaNote"
-        })) {
+        for (const [key, id] of Object.entries(METADATA_FIELDS)) {
             el[id].addEventListener("input", () => {
                 state.metadata[key] = el[id].value;
                 scheduleRender();
@@ -85,58 +97,74 @@ window.DLRC.Editor = (() => {
         el.lineSinger.addEventListener("change", () => {
             const line = getSelectedLine();
             if (!line) return;
-
-            line.column = Number(el.lineSinger.value);
+            line.column = el.lineSinger.value;
             renderAll();
         });
 
         el.lineColor.addEventListener("change", () => {
             const line = getSelectedLine();
             if (!line) return;
-
             line.color = el.lineColor.value;
-            scheduleRender();
+            renderAll();
         });
+
+        // The [length:] tag follows the audio duration when the field is blank.
+        const audio = getAudio();
+        if (audio) {
+            for (const type of ["loadedmetadata", "durationchange"]) {
+                audio.addEventListener(type, scheduleRender);
+            }
+        }
 
         renderAll();
     }
 
     function syncLyricsFromTextarea() {
-        const sourceLines = lyricsInput.value.split(/\r\n|\r|\n/);
+        const entries = lyricsInput.value
+            .split(/\r\n|\r|\n/)
+            .filter(raw => raw.trim());
         const oldLines = state.lines;
-        const newLines = [];
-        let oldIndex = 0;
+        let newLines;
 
-        for (const raw of sourceLines) {
-            if (!raw.trim()) continue;
+        const unchanged = entries.filter(
+            (text, i) => oldLines[i] && oldLines[i].text === text
+        ).length;
 
-            // Reuse unchanged lyric lines in order, preserving timestamps.
-            let matched = -1;
+        if (entries.length === oldLines.length && unchanged >= entries.length / 2) {
+            // Same line count: treat differences as edits and keep timestamps, columns, and colors.
+            newLines = entries.map((text, i) => ({ ...oldLines[i], text }));
+        } else {
+            newLines = [];
+            let oldIndex = 0;
 
-            for (let i = oldIndex; i < oldLines.length; i++) {
-                if (oldLines[i].text === raw) {
-                    matched = i;
-                    break;
+            for (const raw of entries) {
+                let matched = -1;
+
+                for (let i = oldIndex; i < oldLines.length; i++) {
+                    if (oldLines[i].text === raw) {
+                        matched = i;
+                        break;
+                    }
                 }
-            }
 
-            if (matched !== -1) {
-                newLines.push({ ...oldLines[matched] });
-                oldIndex = matched + 1;
-            } else {
-                newLines.push({
-                    id: createId(),
-                    text: raw,
-                    time: null,
-                    column: 0,
-                    color: ""
-                });
+                if (matched !== -1) {
+                    newLines.push({ ...oldLines[matched] });
+                    oldIndex = matched + 1;
+                } else {
+                    newLines.push({
+                        id: createId(),
+                        text: raw,
+                        time: null,
+                        column: "1",
+                        color: ""
+                    });
+                }
             }
         }
 
         state.lines = newLines;
 
-        if (state.lines.length === 0) {
+        if (!state.lines.length) {
             state.activeIndex = 0;
             state.selectedIndex = 0;
         } else {
@@ -157,6 +185,11 @@ window.DLRC.Editor = (() => {
 
     function getAudio() {
         return window.DLRC.AudioPlayer.getAudioElement();
+    }
+
+    function getAudioDuration() {
+        const audio = getAudio();
+        return audio && Number.isFinite(audio.duration) ? audio.duration : null;
     }
 
     function timestampActiveLine() {
@@ -185,7 +218,6 @@ window.DLRC.Editor = (() => {
 
     function moveActive(direction) {
         if (!state.lines.length) return;
-
         state.activeIndex = clampIndex(state.activeIndex + direction);
         state.selectedIndex = state.activeIndex;
         renderAll();
@@ -193,7 +225,6 @@ window.DLRC.Editor = (() => {
 
     function selectLine(index) {
         if (index < 0 || index >= state.lines.length) return;
-
         state.selectedIndex = index;
         state.activeIndex = index;
         renderAll();
@@ -211,11 +242,15 @@ window.DLRC.Editor = (() => {
             return;
         }
 
-        line.text = el.selectedLineText.value;
-        line.column = Number(el.lineSinger.value);
+        if (!el.selectedLineText.value.trim()) {
+            onToast("Lyric text can't be empty.");
+            return;
+        }
+
+        line.text = el.selectedLineText.value.replace(/[\r\n]+/g, " ");
+        line.column = el.lineSinger.value;
         line.color = el.lineColor.value;
 
-        // Keep the text input synchronized with the structured line data.
         lyricsInput.value = state.lines.map(item => item.text).join("\n");
 
         renderAll();
@@ -224,90 +259,103 @@ window.DLRC.Editor = (() => {
 
     function clearSelectedTimestamp() {
         const line = getSelectedLine();
-
         if (!line) return;
-
         line.time = null;
         renderAll();
         onToast("Timestamp cleared.");
     }
 
-    function addSinger() {
+    function addColor() {
         const name = el.newSingerName.value.trim();
-        const color = el.newSingerColor.value;
+        const hex = el.newSingerColor.value.toUpperCase();
 
         if (!name) {
-            onToast("Enter a singer/color name.");
+            onToast("Enter a color name.");
             el.newSingerName.focus();
             return;
         }
 
-        if (/[\[\]<>:{}\r\n]/.test(name)) {
-            onToast("Singer names cannot contain DLRC syntax characters.");
+        if (BAD_NAME.test(name)) {
+            onToast("Color names cannot contain DLRC syntax characters.");
             return;
         }
 
-        if (state.singers.some(s => s.name.toLowerCase() === name.toLowerCase())) {
-            onToast("That singer/color name already exists.");
+        if (state.colors.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+            onToast("That color name already exists.");
             return;
         }
 
-        state.singers.push({ name, color });
+        state.colors.push({ name, hex });
         el.newSingerName.value = "";
         renderAll();
-        onToast(`Added singer "${name}".`);
+        onToast(`Added color "${name}".`);
     }
 
-    function changeSinger(index, property, value) {
-        if (!state.singers[index]) return;
+    function changeColor(index, property, value) {
+        const color = state.colors[index];
+        if (!color) return;
 
         if (property === "name") {
             const name = value.trim();
 
-            if (!name || /[\[\]<>:{}\r\n]/.test(name)) {
+            if (!name || BAD_NAME.test(name)) {
                 onToast("Enter a valid color name.");
-                renderSingers();
+                renderColors();
                 return;
             }
 
-            if (state.singers.some((s, i) =>
-                i !== index && s.name.toLowerCase() === name.toLowerCase()
+            if (state.colors.some((c, i) =>
+                i !== index && c.name.toLowerCase() === name.toLowerCase()
             )) {
                 onToast("Color names must be unique.");
-                renderSingers();
+                renderColors();
                 return;
             }
 
-            state.singers[index].name = name;
-        } else if (property === "color" && /^#[0-9a-f]{6}$/i.test(value)) {
-            state.singers[index].color = value.toUpperCase();
+            const old = color.name.toLowerCase();
+            color.name = name;
+
+            // Keep lines that used the old name pointing at the renamed color.
+            for (const line of state.lines) {
+                if (line.color && line.color.toLowerCase() === old) {
+                    line.color = name;
+                }
+            }
+        } else if (property === "hex" && HEX.test(value)) {
+            color.hex = value.toUpperCase();
         }
 
         renderAll();
     }
 
-    function removeSinger(index) {
-        if (state.singers.length <= 1) {
-            onToast("At least one singer column is required.");
-            return;
-        }
-
-        state.singers.splice(index, 1);
+    function removeColor(index) {
+        const [removed] = state.colors.splice(index, 1);
+        if (!removed) return;
 
         for (const line of state.lines) {
-            if (line.column === index) {
-                line.column = 0;
-            } else if (line.column > index) {
-                line.column--;
+            if (line.color && line.color.toLowerCase() === removed.name.toLowerCase()) {
+                line.color = "";
             }
         }
 
         renderAll();
+    }
+
+    function resolveColor(name) {
+        if (HEX.test(name)) return name;
+        const color = state.colors.find(c => c.name.toLowerCase() === name.toLowerCase());
+        return color ? color.hex : "#A78BFA";
+    }
+
+    function lineBorderColor(line) {
+        return line.color
+            ? resolveColor(line.color)
+            : (COLUMN_COLORS[line.column] || COLUMN_COLORS["1"]);
     }
 
     function renderAll() {
         renderLyrics();
-        renderSingers();
+        renderColors();
         renderSelectedLine();
         renderPreview();
     }
@@ -319,8 +367,7 @@ window.DLRC.Editor = (() => {
         if (!state.lines.length) {
             const empty = document.createElement("div");
             empty.className = "empty-state";
-            empty.textContent =
-                "Enter lyrics above to create your synchronized lyric lines.";
+            empty.textContent = "Enter lyrics above to create your synchronized lyric lines.";
             list.append(empty);
         }
 
@@ -347,13 +394,14 @@ window.DLRC.Editor = (() => {
             const text = document.createElement("button");
             text.type = "button";
             text.className = "sync-line-text";
-            text.textContent = line.text;
-            text.addEventListener("click", () => selectLine(index));
 
-            const singer = state.singers[line.column] || state.singers[0];
-            text.style.borderLeftColor = line.color
-                ? resolveColor(line.color)
-                : singer.color;
+            const tag = document.createElement("span");
+            tag.className = "sync-line-col";
+            tag.textContent = COLUMN_TAGS[line.column] || "?";
+
+            text.append(tag, document.createTextNode(line.text));
+            text.style.borderLeftColor = lineBorderColor(line);
+            text.addEventListener("click", () => selectLine(index));
 
             const retimestamp = document.createElement("button");
             retimestamp.type = "button";
@@ -387,76 +435,66 @@ window.DLRC.Editor = (() => {
             state.activeIndex === state.lines.length - 1;
     }
 
-    function renderSingers() {
+    function renderColors() {
         el.singerList.replaceChildren();
 
-        state.singers.forEach((singer, index) => {
+        if (!state.colors.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty-state";
+            empty.textContent =
+                "No named colors yet. Lines use the default color for their column.";
+            el.singerList.append(empty);
+        }
+
+        state.colors.forEach((color, index) => {
             const row = document.createElement("div");
             row.className = "singer-row";
 
-            const column = document.createElement("span");
-            column.className = "singer-column-badge";
-            column.textContent = String(index);
+            const swatch = document.createElement("span");
+            swatch.className = "singer-column-badge";
+            swatch.style.background = color.hex;
+            swatch.setAttribute("aria-hidden", "true");
 
             const name = document.createElement("input");
             name.type = "text";
             name.className = "singer-name-input";
-            name.value = singer.name;
-            name.setAttribute("aria-label", `Column ${index} color name`);
+            name.value = color.name;
+            name.setAttribute("aria-label", `Color ${index + 1} name`);
             name.addEventListener("change", () =>
-                changeSinger(index, "name", name.value)
+                changeColor(index, "name", name.value)
             );
 
-            const color = document.createElement("input");
-            color.type = "color";
-            color.value = singer.color;
-            color.setAttribute("aria-label", `Column ${index} color`);
-            color.addEventListener("input", () =>
-                changeSinger(index, "color", color.value)
+            const picker = document.createElement("input");
+            picker.type = "color";
+            picker.value = color.hex;
+            picker.setAttribute("aria-label", `Color ${index + 1} value`);
+            picker.addEventListener("input", () =>
+                changeColor(index, "hex", picker.value)
             );
 
             const remove = document.createElement("button");
             remove.type = "button";
             remove.className = "button button-secondary";
             remove.textContent = "Remove";
-            remove.addEventListener("click", () => removeSinger(index));
+            remove.addEventListener("click", () => removeColor(index));
 
-            row.append(column, name, color, remove);
+            row.append(swatch, name, picker, remove);
             el.singerList.append(row);
         });
 
-        const previousColumn = Number(el.lineSinger.value) || 0;
-        el.lineSinger.replaceChildren();
-
-        state.singers.forEach((singer, index) => {
-            const option = document.createElement("option");
-            option.value = String(index);
-            option.textContent = `Column ${index} — ${singer.name}`;
-            el.lineSinger.append(option);
-        });
-
-        el.lineSinger.value = String(
-            Math.min(previousColumn, state.singers.length - 1)
-        );
-
-        const previousColor = el.lineColor.value;
         el.lineColor.replaceChildren();
 
         const defaultOption = document.createElement("option");
         defaultOption.value = "";
-        defaultOption.textContent = "Use singer default";
+        defaultOption.textContent = "Use column default";
         el.lineColor.append(defaultOption);
 
-        state.singers.forEach(singer => {
+        state.colors.forEach(color => {
             const option = document.createElement("option");
-            option.value = singer.name;
-            option.textContent = singer.name;
+            option.value = color.name;
+            option.textContent = color.name;
             el.lineColor.append(option);
         });
-
-        if ([...el.lineColor.options].some(o => o.value === previousColor)) {
-            el.lineColor.value = previousColor;
-        }
     }
 
     function renderSelectedLine() {
@@ -464,7 +502,7 @@ window.DLRC.Editor = (() => {
 
         if (!line) {
             el.selectedLineDescription.textContent =
-                "Select a lyric line above to configure its singer and color.";
+                "Select a lyric line above to choose its column and color.";
             el.selectedLineText.value = "";
             el.selectedLineText.disabled = true;
             el.lineSinger.disabled = true;
@@ -476,8 +514,9 @@ window.DLRC.Editor = (() => {
 
         el.selectedLineDescription.textContent =
             `Editing line ${state.selectedIndex + 1}` +
-            (line.time === null ? " · Not timestamped" :
-                ` · ${formatTimestamp(line.time)}`);
+            (line.time === null
+                ? " · Not timestamped"
+                : ` · ${formatTimestamp(line.time)}`);
 
         el.selectedLineText.disabled = false;
         el.lineSinger.disabled = false;
@@ -486,30 +525,34 @@ window.DLRC.Editor = (() => {
         el.clearLineTimestampButton.disabled = false;
 
         el.selectedLineText.value = line.text;
-        el.lineSinger.value = String(
-            Math.min(line.column, state.singers.length - 1)
-        );
-        el.lineColor.value = line.color || "";
-    }
+        el.lineSinger.value = line.column;
 
-    function formatTimestamp(seconds) {
-        const centiseconds = Math.round(seconds * 100);
-        const minutes = Math.floor(centiseconds / 6000);
-        const remainder = centiseconds % 6000;
-        const wholeSeconds = Math.floor(remainder / 100);
-        const fraction = remainder % 100;
-
-        return `${String(minutes).padStart(2, "0")}:` +
-            `${String(wholeSeconds).padStart(2, "0")}.` +
-            `${String(fraction).padStart(2, "0")}`;
-    }
-
-    function resolveColor(name) {
-        const singer = state.singers.find(
-            item => item.name.toLowerCase() === name.toLowerCase()
+        const wanted = line.color || "";
+        let match = [...el.lineColor.options].find(
+            o => o.value.toLowerCase() === wanted.toLowerCase()
         );
 
-        return singer ? singer.color : "#A78BFA";
+        if (!match) {
+            match = document.createElement("option");
+            match.value = wanted;
+            match.textContent = HEX.test(wanted)
+                ? `Custom ${wanted}`
+                : `${wanted} (not declared)`;
+            el.lineColor.append(match);
+        }
+
+        el.lineColor.value = match.value;
+    }
+
+    function buildResult() {
+        return generate({
+            metadata: state.metadata,
+            colors: state.colors,
+            lines: state.lines,
+            header: state.header,
+            footer: state.footer,
+            audioDuration: getAudioDuration()
+        });
     }
 
     function scheduleRender() {
@@ -523,97 +566,33 @@ window.DLRC.Editor = (() => {
     }
 
     function renderPreview() {
-        const output = [];
-        const issues = [];
+        const result = buildResult();
 
-        addTag(output, "ti", state.metadata.title);
-        addTag(output, "ar", state.metadata.artist);
-        addTag(output, "al", state.metadata.album);
-        addTag(output, "by", state.metadata.creator);
+        el.dlrcPreview.value = result.source;
 
-        if (state.metadata.offset !== 0) {
-            output.push(`[offset:${Math.trunc(state.metadata.offset)}]`);
-        }
-
-        // A named declaration defines a reusable color for the file.
-        for (const singer of state.singers) {
-            output.push(`[${singer.color}:${singer.name}]`);
-        }
-
-        if (state.metadata.note.trim()) {
-            output.push(`[re:${state.metadata.note.trim()}]`);
-        }
-        
-        for (const rawTag of state.preservedTags) {
-            output.push(rawTag);
-        }
-
-        if (output.length && state.lines.length) output.push("");
-
-        const seenTimestamps = new Set();
-
-        state.lines.forEach((line, index) => {
-            if (line.time === null) {
-                issues.push(`Line ${index + 1} has no timestamp.`);
-                return;
-            }
-
-            if (!Number.isFinite(line.time) || line.time < 0) {
-                issues.push(`Line ${index + 1} has an invalid timestamp.`);
-                return;
-            }
-
-            const timestamp = formatTimestamp(line.time);
-
-            if (seenTimestamps.has(timestamp)) {
-                // Simultaneous vocals may legitimately share a timestamp.
-            }
-            seenTimestamps.add(timestamp);
-
-            const singer = state.singers[line.column];
-
-            if (!singer) {
-                issues.push(`Line ${index + 1} has an undefined singer column.`);
-                return;
-            }
-
-            let colorTag = "";
-
-            if (line.color) {
-                const defined = state.singers.some(
-                    item => item.name.toLowerCase() === line.color.toLowerCase()
-                );
-
-                if (!defined) {
-                    issues.push(
-                        `Line ${index + 1} uses undefined color "${line.color}".`
-                    );
-                } else {
-                    colorTag = `<${line.color}>`;
-                }
-            }
-
-            output.push(
-                `[${timestamp}]{${line.column}}${colorTag}${line.text}`
-            );
-        });
-
-        el.dlrcPreview.value = output.join("\n");
-        el.validationCount.textContent = issues.length
-            ? `${issues.length} issue${issues.length === 1 ? "" : "s"}`
+        el.validationCount.textContent = result.issues.length
+            ? `${result.issues.length} issue${result.issues.length === 1 ? "" : "s"}`
             : "No validation issues";
+        el.validationCount.removeAttribute("title");
+
+        el.validationList.replaceChildren();
+
+        for (const issue of result.issues) {
+            const item = document.createElement("li");
+            item.textContent = issue;
+            el.validationList.append(item);
+        }
+
+        for (const note of state.importNotes) {
+            const item = document.createElement("li");
+            item.className = "is-note";
+            item.textContent = `Import: ${note}`;
+            el.validationList.append(item);
+        }
 
         el.previewStatus.textContent = state.lines.length
             ? `${state.lines.length} lyric lines`
             : "Waiting for lyrics";
-
-        el.validationCount.title = issues.join("\n");
-    }
-
-    function addTag(output, tag, value) {
-        if (value.trim()) {
-            output.push(`[${tag}:${value.trim().replace(/[\r\n]/g, " ")}]`);
-        }
     }
 
     async function copySource() {
@@ -643,6 +622,12 @@ window.DLRC.Editor = (() => {
 
         if (typing || event.altKey || event.ctrlKey || event.metaKey) return;
 
+        // Let Enter and Space press a focused button or link normally.
+        const interactive = target instanceof HTMLElement &&
+            target.closest("button, a, summary");
+
+        if (interactive && (event.code === "Space" || event.key === "Enter")) return;
+
         if (event.code === "Space") {
             event.preventDefault();
             const audio = getAudio();
@@ -665,223 +650,49 @@ window.DLRC.Editor = (() => {
         }
     }
 
-    
     function importSource(source) {
         if (typeof source !== "string" || !source.trim()) {
             throw new Error("The selected file is empty.");
         }
-    
-        const lines = source.replace(/^\uFEFF/, "").split(/\r\n|\r|\n/);
-        const metadata = {
-            title: "",
-            artist: "",
-            album: "",
-            creator: "",
-            offset: 0,
-            note: ""
-        };
-        const singers = [];
-        const lyricLines = [];
-        const preservedTags = [];
-        const errors = [];
-    
-        const metadataKeys = {
-            ti: "title",
-            ar: "artist",
-            al: "album",
-            by: "creator",
-            re: "note"
-        };
-    
-        for (let i = 0; i < lines.length; i++) {
-            const raw = lines[i];
-    
-            if (!raw.trim()) continue;
-    
-            // Named color declaration: [#000DFF: blue]
-            const colorDeclaration = raw.match(
-                /^\[#([0-9a-f]{6}):\s*([^\]]+)\]$/i
-            );
-    
-            if (colorDeclaration) {
-                const color = `#${colorDeclaration[1].toUpperCase()}`;
-                const name = colorDeclaration[2].trim();
-    
-                if (singers.some(s => s.name.toLowerCase() === name.toLowerCase())) {
-                    errors.push(`Line ${i + 1}: duplicate color declaration "${name}".`);
-                } else {
-                    singers.push({ name, color });
-                }
-                continue;
-            }
-    
-            // Standard LRC metadata and DLRC offset.
-            const tag = raw.match(/^\[([a-z]{2}|offset):([^\]]*)\]$/i);
-    
-            if (tag) {
-                const key = tag[1].toLowerCase();
-                const value = tag[2];
-    
-                if (key === "offset") {
-                    const offset = Number(value);
-    
-                    if (Number.isFinite(offset)) {
-                        metadata.offset = offset;
-                    } else {
-                        errors.push(`Line ${i + 1}: invalid offset value.`);
-                        preservedTags.push(raw);
-                    }
-                } else if (metadataKeys[key]) {
-                    metadata[metadataKeys[key]] = value;
-                } else {
-                    preservedTags.push(raw);
-                }
-                continue;
-            }
-    
-            // DLRC lyric line with optional column and named color.
-            const duetLine = raw.match(
-                /^\[(\d{1,}):(\d{2})(?:\.(\d{1,3}))?\](?:\{(\d+)\})?(?:<([^<>]+)>)?(.*)$/
-            );
-    
-            if (duetLine) {
-                const minutes = Number(duetLine[1]);
-                const seconds = Number(duetLine[2]);
-                const fraction = duetLine[3] || "0";
-                const column = duetLine[4] === undefined
-                    ? 0
-                    : Number(duetLine[4]);
-                const color = duetLine[5] || "";
-                const text = duetLine[6];
-    
-                if (seconds > 59) {
-                    errors.push(`Line ${i + 1}: seconds must be between 00 and 59.`);
-                    preservedTags.push(raw);
-                    continue;
-                }
-    
-                const fractionSeconds = Number(`0.${fraction}`);
-                const time = minutes * 60 + seconds + fractionSeconds;
-    
-                lyricLines.push({
-                    id: `import-${i}-${Math.random().toString(36).slice(2, 8)}`,
-                    text,
-                    time,
-                    column,
-                    color
-                });
-                continue;
-            }
-    
-            // Unknown lines are retained so import doesn't silently discard them.
-            preservedTags.push(raw);
-            errors.push(`Line ${i + 1}: unrecognized syntax was preserved as raw text.`);
-        }
-    
-        // If the file has no explicit declarations, provide a usable default.
-        const finalSingers = singers.length
-            ? singers
-            : [
-                { name: "blue", color: "#000DFF" },
-                { name: "red", color: "#FF0000" }
-            ];
-    
-        const maxColumn = lyricLines.reduce(
-            (max, line) => Math.max(max, line.column),
-            0
-        );
-    
-        while (finalSingers.length <= maxColumn) {
-            const index = finalSingers.length;
-            finalSingers.push({
-                name: `column${index}`,
-                color: "#A78BFA"
-            });
-        }
-    
-        // Commit the imported data only after parsing has completed.
-        state.lines = lyricLines;
-        state.singers = finalSingers;
-        state.metadata = metadata;
-        state.preservedTags = preservedTags;
+
+        const parsed = window.DLRC.Parser.parse(source);
+
+        state.lines = parsed.lines;
+        state.colors = parsed.colors;
+        state.header = parsed.header;
+        state.footer = parsed.footer;
+        state.importNotes = parsed.issues;
+        state.metadata = parsed.metadata;
         state.activeIndex = 0;
         state.selectedIndex = 0;
-    
-        for (const [key, id] of Object.entries({
-            title: "metaTitle",
-            artist: "metaArtist",
-            album: "metaAlbum",
-            creator: "metaCreator",
-            offset: "metaOffset",
-            note: "metaNote"
-        })) {
-            el[id].value = metadata[key];
+
+        for (const [key, id] of Object.entries(METADATA_FIELDS)) {
+            el[id].value = parsed.metadata[key];
         }
-    
-        lyricsInput.value = lyricLines.map(line => line.text).join("\n");
-    
+        el.metaOffset.value = parsed.metadata.offset;
+
+        lyricsInput.value = parsed.lines.map(line => line.text).join("\n");
+        lyricsInput.dispatchEvent(new Event("input", { bubbles: true }));
+
         renderAll();
-    
+
         return {
-            importedLines: lyricLines.length,
-            preservedLines: preservedTags.length,
-            issues: errors
+            importedLines: parsed.lines.length,
+            preservedLines: parsed.header.length + parsed.footer.length,
+            issues: parsed.issues
         };
     }
-    
+
     function getLines() {
         return state.lines.map(line => ({ ...line }));
     }
-    
+
     function getSource() {
         return el.dlrcPreview.value;
     }
-    
+
     function validate() {
-        const issues = [];
-        const seenColors = new Set();
-    
-        state.singers.forEach((singer, index) => {
-            const normalized = singer.name.toLowerCase();
-    
-            if (seenColors.has(normalized)) {
-                issues.push(`Duplicate color declaration: "${singer.name}".`);
-            }
-    
-            seenColors.add(normalized);
-    
-            if (!/^#[0-9a-f]{6}$/i.test(singer.color)) {
-                issues.push(`Invalid hexadecimal color for "${singer.name}".`);
-            }
-    
-            if (/[\[\]<>:{}\r\n]/.test(singer.name)) {
-                issues.push(`Invalid color name at column ${index}.`);
-            }
-        });
-    
-        state.lines.forEach((line, index) => {
-            if (line.time === null || !Number.isFinite(line.time) || line.time < 0) {
-                issues.push(`Line ${index + 1} has no valid timestamp.`);
-            }
-    
-            if (!Number.isInteger(line.column) ||
-                line.column < 0 ||
-                line.column >= state.singers.length) {
-                issues.push(`Line ${index + 1} has an invalid singer column.`);
-            }
-    
-            if (line.color && !seenColors.has(line.color.toLowerCase())) {
-                issues.push(
-                    `Line ${index + 1} references an undefined color "${line.color}".`
-                );
-            }
-    
-            if (/[\r\n]/.test(line.text)) {
-                issues.push(`Line ${index + 1} contains a line break.`);
-            }
-        });
-    
-        return issues;
+        return buildResult().issues;
     }
 
     document.addEventListener("keydown", handleKeyboard);
