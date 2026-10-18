@@ -42,6 +42,11 @@ window.DLRC.IO = (() => {
 
         if (!file) return;
 
+        if (!/\.(dlrc|lrc|txt)$/i.test(file.name)) {
+            onToast("Please choose a .dlrc, .lrc, or .txt file.");
+            return;
+        }
+
         if (file.size > 5 * 1024 * 1024) {
             onToast("Please choose a DLRC file smaller than 5 MB.");
             return;
