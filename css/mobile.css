@@ -1,0 +1,239 @@
+/* DLRC Creator: phone layout (560px and narrower) */
+
+@media (max-width: 560px) {
+    .topbar {
+        min-height: 62px;
+        padding: 0 16px;
+    }
+
+    .brand-icon {
+        width: 33px;
+        height: 33px;
+    }
+
+    .brand-name {
+        font-size: 14px;
+    }
+
+    .header-actions {
+        gap: 0;
+    }
+
+    .save-status {
+        display: none;
+    }
+
+    .library-link {
+        font-size: 11px;
+    }
+
+    .workspace {
+        width: calc(100% - 28px);
+        gap: 16px;
+        padding: 28px 0 36px;
+    }
+
+    .welcome-section {
+        gap: 14px;
+        margin-bottom: 2px;
+    }
+
+    .eyebrow {
+        font-size: 9px;
+        letter-spacing: 1.5px;
+    }
+
+    h1 {
+        max-width: 350px;
+        font-size: clamp(29px, 8vw, 36px);
+        letter-spacing: -1.2px;
+    }
+
+    .welcome-description {
+        font-size: 13px;
+    }
+
+    .panel {
+        padding: 18px;
+        border-radius: 15px;
+    }
+
+    .section-heading {
+        align-items: flex-start;
+        gap: 11px;
+        margin-bottom: 18px;
+    }
+
+    .section-icon {
+        width: 37px;
+        height: 37px;
+        border-radius: 11px;
+        font-size: 20px;
+    }
+
+    .section-heading h2 {
+        font-size: 14px;
+    }
+
+    .section-heading p {
+        font-size: 11px;
+    }
+
+    .upload-zone {
+        padding: 25px 12px;
+    }
+
+    .upload-zone h3 {
+        font-size: 12px;
+    }
+
+    .upload-zone > p {
+        font-size: 11px;
+    }
+
+    .track-player {
+        gap: 10px;
+        padding: 11px;
+    }
+
+    .track-art {
+        width: 42px;
+        height: 42px;
+    }
+
+    .playback-row {
+        gap: 9px;
+    }
+
+    .playback-label {
+        font-size: 10px;
+    }
+
+    .speed-select {
+        padding: 0 7px;
+    }
+
+    .lyrics-input {
+        min-height: 220px;
+        padding: 12px;
+        font-size: 12px;
+        line-height: 1.9;
+    }
+
+    .editor-footer {
+        align-items: flex-start;
+    }
+
+    .editor-footer p {
+        max-width: 190px;
+    }
+
+    .next-step-notice {
+        padding: 12px;
+    }
+
+    .app-footer {
+        padding: 16px;
+        font-size: 9px;
+    }
+}
+
+@media (max-width: 560px) {
+    .metadata-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 13px;
+    }
+
+    .sync-controls {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+        gap: 6px;
+    }
+
+    .sync-controls .button {
+        padding: 0 7px;
+        font-size: 10px;
+    }
+
+    .sync-line {
+        grid-template-columns: 23px 64px minmax(0, 1fr) 36px;
+        gap: 3px;
+        padding: 4px;
+    }
+
+    .sync-line-text {
+        padding: 8px 6px;
+        font-size: 11px;
+    }
+
+    .sync-line-time {
+        font-size: 9px;
+    }
+
+    .sync-line-retimestamp {
+        font-size: 9px;
+    }
+
+    .singer-add-row {
+        grid-template-columns: minmax(0, 1fr) 76px;
+    }
+
+    .singer-add-row .button {
+        grid-column: 1 / -1;
+    }
+
+    .singer-row {
+        grid-template-columns: 28px minmax(0, 1fr) 42px;
+        gap: 7px;
+    }
+
+    .singer-row input[type="color"] {
+        width: 42px;
+    }
+
+    .singer-row .button {
+        grid-column: 2 / -1;
+        justify-self: start;
+    }
+
+    .sync-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .preview-toolbar {
+        align-items: flex-start;
+    }
+
+    .dlrc-preview {
+        min-height: 240px;
+        padding: 12px;
+        font-size: 11px;
+    }
+
+    .preview-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 560px) {
+    .preview-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .file-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .file-actions .button {
+        width: 100%;
+        white-space: normal;
+    }
+
+    #downloadDlrcButton {
+        grid-column: 1 / -1;
+    }
+}
