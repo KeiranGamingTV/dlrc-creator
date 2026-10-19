@@ -1,0 +1,21 @@
+/* DLRC Creator: desktop layout (wider than 900px) */
+
+@media (min-width: 901px) {
+    .topbar {
+        padding: 0 32px;
+    }
+
+    .workspace {
+        width: min(var(--content-width), calc(100% - 48px));
+        padding: 44px 0 56px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 24px;
+    }
+
+    .welcome-section {
+        grid-column: 1 / -1;
+        align-items: flex-end;
+        flex-direction: row;
+        gap: 24px;
+    }
+}
