@@ -40,9 +40,18 @@ window.DLRC.Editor = (() => {
     let lyricsInput;
     let onToast = () => {};
     let renderQueued = false;
+    let engine;
 
     function init(options = {}) {
         onToast = options.onToast || (() => {});
+
+        engine = window.DLRC.TimestampEngine.create({
+            getState: () => state,
+            getAudio,
+            onChange: renderAll,
+            onToast: message => onToast(message)
+        });
+        engine.attachKeyboard();
 
         const ids = [
             "lyricsInput", "syncProgress", "activeLineLabel",
@@ -72,13 +81,14 @@ window.DLRC.Editor = (() => {
 
         lyricsInput.addEventListener("input", syncLyricsFromTextarea);
 
-        el.timestampButton.addEventListener("click", timestampActiveLine);
-        el.previousLineButton.addEventListener("click", () => moveActive(-1));
-        el.nextLineButton.addEventListener("click", () => moveActive(1));
+        el.timestampButton.addEventListener("click", engine.stampActive);
+        el.previousLineButton.addEventListener("click", () => engine.moveActive(-1));
+        el.nextLineButton.addEventListener("click", () => engine.moveActive(1));
+
 
         el.addSingerButton.addEventListener("click", addColor);
         el.applyLineButton.addEventListener("click", applySelectedLine);
-        el.clearLineTimestampButton.addEventListener("click", clearSelectedTimestamp);
+        el.clearLineTimestampButton.addEventListener("click", engine.clearSelected);
         el.copyDlrcButton.addEventListener("click", copySource);
 
         for (const [key, id] of Object.entries(METADATA_FIELDS)) {
@@ -168,8 +178,8 @@ window.DLRC.Editor = (() => {
             state.activeIndex = 0;
             state.selectedIndex = 0;
         } else {
-            state.activeIndex = clampIndex(state.activeIndex);
-            state.selectedIndex = clampIndex(state.selectedIndex);
+            state.activeIndex = engine.clampIndex(state.activeIndex);
+            state.selectedIndex = engine.clampIndex(state.selectedIndex);
         }
 
         renderAll();
@@ -179,10 +189,6 @@ window.DLRC.Editor = (() => {
         return `line-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     }
 
-    function clampIndex(index) {
-        return Math.max(0, Math.min(index, state.lines.length - 1));
-    }
-
     function getAudio() {
         return window.DLRC.AudioPlayer.getAudioElement();
     }
@@ -190,44 +196,6 @@ window.DLRC.Editor = (() => {
     function getAudioDuration() {
         const audio = getAudio();
         return audio && Number.isFinite(audio.duration) ? audio.duration : null;
-    }
-
-    function timestampActiveLine() {
-        const audio = getAudio();
-
-        if (!state.lines.length) {
-            onToast("Enter your lyrics before adding timestamps.");
-            return;
-        }
-
-        if (!audio || !audio.src || !Number.isFinite(audio.currentTime)) {
-            onToast("Choose an audio file first.");
-            return;
-        }
-
-        const index = clampIndex(state.activeIndex);
-        state.lines[index].time = Math.max(0, audio.currentTime);
-        state.selectedIndex = index;
-
-        if (index < state.lines.length - 1) {
-            state.activeIndex = index + 1;
-        }
-
-        renderAll();
-    }
-
-    function moveActive(direction) {
-        if (!state.lines.length) return;
-        state.activeIndex = clampIndex(state.activeIndex + direction);
-        state.selectedIndex = state.activeIndex;
-        renderAll();
-    }
-
-    function selectLine(index) {
-        if (index < 0 || index >= state.lines.length) return;
-        state.selectedIndex = index;
-        state.activeIndex = index;
-        renderAll();
     }
 
     function getSelectedLine() {
@@ -255,14 +223,6 @@ window.DLRC.Editor = (() => {
 
         renderAll();
         onToast("Lyric line updated.");
-    }
-
-    function clearSelectedTimestamp() {
-        const line = getSelectedLine();
-        if (!line) return;
-        line.time = null;
-        renderAll();
-        onToast("Timestamp cleared.");
     }
 
     function addColor() {
@@ -389,7 +349,7 @@ window.DLRC.Editor = (() => {
                 ? "--:--.--"
                 : formatTimestamp(line.time);
             timestamp.title = "Select this line";
-            timestamp.addEventListener("click", () => selectLine(index));
+            timestamp.addEventListener("click", () => engine.selectLine(index));
 
             const text = document.createElement("button");
             text.type = "button";
@@ -401,18 +361,14 @@ window.DLRC.Editor = (() => {
 
             text.append(tag, document.createTextNode(line.text));
             text.style.borderLeftColor = lineBorderColor(line);
-            text.addEventListener("click", () => selectLine(index));
+            text.addEventListener("click", () => engine.selectLine(index));
 
             const retimestamp = document.createElement("button");
             retimestamp.type = "button";
             retimestamp.className = "sync-line-retimestamp";
             retimestamp.textContent = "Set";
             retimestamp.title = "Timestamp this line at the current position";
-            retimestamp.addEventListener("click", () => {
-                state.activeIndex = index;
-                state.selectedIndex = index;
-                timestampActiveLine();
-            });
+            retimestamp.addEventListener("click", () => engine.stampLine(index));
 
             row.append(number, timestamp, text, retimestamp);
             list.append(row);
@@ -614,42 +570,6 @@ window.DLRC.Editor = (() => {
         }
     }
 
-    function handleKeyboard(event) {
-        const target = event.target;
-        const typing = target instanceof HTMLElement &&
-            (target.isContentEditable ||
-             ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
-
-        if (typing || event.altKey || event.ctrlKey || event.metaKey) return;
-
-        // Let Enter and Space press a focused button or link normally.
-        const interactive = target instanceof HTMLElement &&
-            target.closest("button, a, summary");
-
-        if (interactive && (event.code === "Space" || event.key === "Enter")) return;
-
-        if (event.code === "Space") {
-            event.preventDefault();
-            const audio = getAudio();
-            if (audio?.src) {
-                if (audio.paused) {
-                    audio.play().catch(() => {});
-                } else {
-                    audio.pause();
-                }
-            }
-        } else if (event.key === "Enter") {
-            event.preventDefault();
-            timestampActiveLine();
-        } else if (event.key === "ArrowUp") {
-            event.preventDefault();
-            moveActive(-1);
-        } else if (event.key === "ArrowDown") {
-            event.preventDefault();
-            moveActive(1);
-        }
-    }
-
     function importSource(source) {
         if (typeof source !== "string" || !source.trim()) {
             throw new Error("The selected file is empty.");
@@ -694,8 +614,6 @@ window.DLRC.Editor = (() => {
     function validate() {
         return buildResult().issues;
     }
-
-    document.addEventListener("keydown", handleKeyboard);
 
     return {
         init,
