@@ -89,15 +89,21 @@ There are no dependencies and no build step.
 dlrc-creator/
 ├── index.html
 ├── css/
-│   └── styles.css
+│   ├── styles.css           shared styles and the single-column layout
+│   ├── desktop.css          wide-screen layout (wider than 900px)
+│   └── mobile.css           phone layout (560px and narrower)
 ├── js/
-│   ├── app.js             startup and toast messages
-│   ├── audio-player.js    audio loading, seeking, playback speed
-│   ├── dlrc-parser.js     reads .dlrc / .lrc / .txt source
-│   ├── dlrc-generator.js  writes DLRC source and runs validation
-│   ├── dlrc-editor.js     lyric lines, colors, metadata, preview
-│   └── dlrc-io.js         import, copy, and download
-└── assets/icons/
+│   ├── app.js               startup and toast messages
+│   ├── audio-player.js      audio loading, seeking, playback speed
+│   ├── timestamp-engine.js  timestamping, line navigation, keyboard shortcuts
+│   ├── lyrics-editor.js     lyric lines, line editing, column and color choice
+│   ├── metadata-editor.js   metadata fields and the named-color list
+│   ├── dlrc-parser.js       reads .dlrc / .lrc / .txt source
+│   ├── dlrc-generator.js    writes DLRC source and runs validation
+│   ├── dlrc-editor.js       connects the editor modules and renders the preview
+│   └── dlrc-io.js           import, copy, and download
+├── assets/icons/
+└── README.md
 ```
 
 ## Compatibility

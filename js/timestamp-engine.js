@@ -25,11 +25,13 @@ window.DLRC.TimestampEngine = (() => {
 
             const index = clampIndex(state.activeIndex);
             state.lines[index].time = Math.max(0, audio.currentTime);
-            state.selectedIndex = index;
 
             if (index < state.lines.length - 1) {
                 state.activeIndex = index + 1;
             }
+
+            // Keep the selected line on the active line so the two never disagree.
+            state.selectedIndex = state.activeIndex;
 
             onChange();
         }

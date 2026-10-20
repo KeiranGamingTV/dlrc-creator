@@ -166,6 +166,11 @@ window.DLRC.AudioPlayer = (() => {
             return;
         }
 
+        if (file.size === 0) {
+            onError("That audio file is empty.");
+            return;
+        }
+
         if (currentObjectUrl) {
             URL.revokeObjectURL(currentObjectUrl);
             currentObjectUrl = null;

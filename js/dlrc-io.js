@@ -7,11 +7,11 @@ window.DLRC.IO = (() => {
     let fileInput;
     let importButton;
     let downloadButton;
-    let copyButton;
     let preview;
     let status;
     let validation;
     let onToast = () => {};
+    let importToken = 0;
 
     function init(options = {}) {
         onToast = options.onToast || (() => {});
@@ -19,7 +19,6 @@ window.DLRC.IO = (() => {
         fileInput = document.getElementById("dlrcFileInput");
         importButton = document.getElementById("importDlrcButton");
         downloadButton = document.getElementById("downloadDlrcButton");
-        copyButton = document.getElementById("copyDlrcButton");
         preview = document.getElementById("dlrcPreview");
         status = document.getElementById("previewStatus");
         validation = document.getElementById("validationCount");
@@ -27,13 +26,6 @@ window.DLRC.IO = (() => {
         importButton.addEventListener("click", () => fileInput.click());
         fileInput.addEventListener("change", handleImport);
         downloadButton.addEventListener("click", downloadFile);
-
-        // Existing editor copy handling remains the single source of truth.
-        copyButton.addEventListener("click", () => {
-            if (!preview.value.trim()) {
-                onToast("There is no DLRC source to copy yet.");
-            }
-        });
     }
 
     async function handleImport() {
@@ -52,8 +44,23 @@ window.DLRC.IO = (() => {
             return;
         }
 
+                if (
+            window.DLRC.Editor.hasWork() &&
+            !window.confirm(
+                `Importing "${file.name}" will replace the lyrics, metadata, and colors you are working on.\n\nImport anyway?`
+            )
+        ) {
+            return;
+        }
+
+        const token = ++importToken;
+
         try {
             const source = await file.text();
+
+            // A newer import started while this file was being read.
+            if (token !== importToken) return;
+
             const result = window.DLRC.Editor.importSource(source);
 
             status.textContent = `Imported ${result.importedLines} lyric lines`;
